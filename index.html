@@ -3,37 +3,68 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>アプリの雛形</title>
-<meta name="description" content="ビルドなしで動くアプリの雛形">
-<meta name="theme-color" content="#151a2e">
-<!-- ホーム画面に追加して開いたとき、時計や電池の帯の下まで画面を描く。
-     無いと iOS は帯の下からページを始め、帯を theme-color の板で塗る (画面のいちばん上が別の色になる)。
-     上の安全域は styles.css の env(safe-area-inset-top) で空けてある。
-     iOS は追加したときの設定を覚えているので、前に追加したアイコンは作り直さないと変わらない -->
+<title>かくりつゲーム</title>
+<meta name="description" content="みどりにとまればクリア。1%ずつ下がる確率に、どこまで勝ちつづけられるか">
+<!-- 帯の色は画面の地の色 (明るい画面 / 暗い画面) -->
+<meta name="theme-color" content="#DCE7EF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#13202C" media="(prefers-color-scheme: dark)">
+<!-- ホーム画面に追加して開いたとき、時計や電池の帯の下まで画面を描く (CLAUDE.md の落とし穴の表) -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="かくりつ">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+<canvas id="fx"></canvas>
+<div id="banner"></div>
 
-<div id="app">
-  <header id="topbar">
-    <h1 class="title">アプリの雛形</h1>
-    <div class="topbar-actions">
-      <button type="button" id="btnAction" class="btn btn-primary">ためす</button>
+<header>
+  <h1>かくりつゲーム</h1>
+  <div class="best">さいこう <b id="best">—</b></div>
+  <button id="snd" aria-label="おとのオンオフ">おと あり</button>
+</header>
+
+<nav class="modes" aria-label="あそびかた">
+  <button data-mode="normal" aria-pressed="true" aria-label="100%からさがる">100% ↓</button>
+  <button data-mode="gyaku" aria-pressed="false" aria-label="1%からあがる">1% ↑</button>
+</nav>
+
+<main>
+  <div class="wrap" id="wrap">
+    <svg viewBox="0 0 200 200" aria-hidden="true">
+      <circle cx="100" cy="100" r="92" fill="var(--disc)" stroke="var(--rim)" stroke-width="2"/>
+      <circle cx="100" cy="100" r="80" fill="none" stroke="var(--lose)" stroke-width="14" opacity=".9"/>
+      <path id="arc" fill="none" stroke="var(--win)" stroke-width="14" stroke-linecap="butt"/>
+      <path id="glow" fill="none" stroke="#000" stroke-width="14" stroke-linecap="butt" opacity="0"/>
+      <g id="ticks"></g>
+      <g id="trail"></g>
+      <g id="ballG"><circle cx="100" cy="20" r="7.5" fill="var(--ball)" stroke="var(--ink)" stroke-width="1.5"/></g>
+    </svg>
+    <div class="center">
+      <div id="pct">100<small>%</small></div>
+      <div id="msg"></div>
+      <div id="combo"></div>
     </div>
-  </header>
+  </div>
+  <div class="reach" id="reach"></div>
+  <div class="btns">
+    <button id="spin">まわす</button>
+    <button id="stop">やめる<small id="stopPts"></small></button>
+  </div>
+</main>
+<p class="hint" id="hint"></p>
 
-  <main id="stage">
-    <p class="lead">ここにアプリを作る。</p>
-    <p class="result" id="result">—</p>
-    <p class="note">
-      ロジックは <code>src/core.js</code> に、画面は <code>src/app.js</code> に書く。<br>
-      <code>npm test</code> でロジックを、<code>npm run test:ui</code> で画面を確かめる。
-    </p>
-  </main>
+<div id="over" role="dialog" aria-modal="true">
+  <div class="card">
+    <div class="lost" id="lostAt"></div>
+    <div class="score" id="score"></div>
+    <div class="cap" id="cap"></div>
+    <p class="odds" id="odds"></p>
+    <div class="newbest" id="newbest"></div>
+    <button id="again">もういちど</button>
+  </div>
 </div>
 
 <script src="./core.js"></script>
