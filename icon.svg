@@ -1,5 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="アプリの雛形">
-  <rect width="512" height="512" rx="108" fill="#151a2e"/>
-  <rect x="96" y="96" width="200" height="200" rx="28" fill="#4cc9f0"/>
-  <rect x="216" y="216" width="200" height="200" rx="28" fill="#ffd166"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <rect width="180" height="180" fill="#DCE7EF"/>
+  <circle cx="90" cy="90" r="74" fill="#fff" stroke="#B9CAD7" stroke-width="3"/>
+  <circle cx="90" cy="90" r="60" fill="none" stroke="#E2483D" stroke-width="18"/>
+  <!-- みどり 70% -->
+  <path d="M 90 30 A 60 60 0 1 1 32.94 71.46" fill="none" stroke="#2E9E6B" stroke-width="18"/>
+  <text x="90" y="104" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="40" fill="#1C2B3A">%</text>
+  <circle cx="141.0" cy="58.2" r="13" fill="#F2B705" stroke="#1C2B3A" stroke-width="3"/>
 </svg>

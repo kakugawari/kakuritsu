@@ -2,8 +2,26 @@
 
 <!-- ここから: 新しいアプリを始めたら、この節を書き換える -->
 
-**まだ何も作っていない雛形の状態。** 最初の作業で、ここに
-「何のアプリか」「どう動かすか」「決めごと」を書き足すこと。
+**かくりつゲーム** ― 円の上を玉がまわり、みどりの所にとまれば あたり。あそびかたは 2 つ。
+- **100% ↓**: 100% から始め、あたるたびに 1% ずつ下がる。どこまでクリアしつづけられるか (低いほどすごい)
+- **1% ↑**: 1% から始め、はずれるたびに 1% ずつ上がる。何%で あたるか (早いほどラッキー)
+
+- もとは Claude のチャットで作ったアーティファクト「かくりつゲーム」(`https://claude.ai/artifact/EnwJU74frEEckTpzBpcoku`)。
+  `import-artifact.js` で分けて取り込んだ
+- 確率の計算 (`clearProb`・`hitByProb`) と「1 回まわす」(`spinOnce`) は `core.js`。`core.test.js` で、画面に出す確率が
+  20 万回遊んだ割合と合うかを見ている。画面・音・紙ふぶきは `app.js`
+- 乱数は `crypto.getRandomValues`。ブラウザのテストはこれを差し替えて、あたり・はずれを決め打ちにしている
+- 記録は `localStorage` の `kakuritsu-best` (100% ↓)・`kakuritsu-best-gyaku` (1% ↑)・`kakuritsu-mode`・`kakuritsu-sound`。
+  アーティファクトで遊んだ記録は引き継がれない
+- `app.js` に「やめどき」モード (ためた点をもらってやめる) の書きかけが残っている。`MODES` に入っていないので出てこない
+- 取り込んだあとに直したこと (アーティファクトを直してもう一度取り込むときは、付け直す):
+  - `index.html`: アーティファクトは HTML の中にもう 1 枚 HTML が入った形だったので、1 枚に書き直した。
+    theme-color は地の色 (明るい画面 `#DCE7EF` / 暗い画面 `#13202C`)。帯の指定は `black-translucent`
+  - `styles.css`: `html,body` を `height:100vh; position:relative`、`#fx`・`#banner`・`#over` を `fixed` → `absolute`。
+    安全域の余白は `:root` から body へ移して 1 か所だけにした
+  - `app.js`: 紙ふぶきの canvas の大きさは窓ではなく canvas から取り、0 のときは組み直さない。
+    紙ふぶきを出す位置は canvas の座標で数える。`window.__app` (テストの入口) と `sw.js` の登録を足した
+  - アイコン (`icon.svg` → `apple-touch-icon.png`) と、ネット優先の `sw.js` を作った
 
 <!-- ここまで -->
 
@@ -83,15 +101,16 @@ npm run test:ui    # ブラウザで実際に動かすテスト (要 npm i -D pl
 
 ```
 index.html / styles.css   画面
-core.js                   ロジック。DOM を触らない。ブラウザと node の両方で動く
-app.js                    操作・描画
+core.js                   確率の計算と「1 回まわす」。DOM を触らない。ブラウザと node の両方で動く
+app.js                    操作・描画・音・紙ふぶき
 core.test.js              ロジックのテスト (node --test)
 browser-test.js           ブラウザで動かすテスト
 serve.js                  開発用サーバー
 import-artifact.js        アーティファクト (1 枚の HTML) を上の形に分ける
 import-artifact.test.js   その道具のテスト
 make-icon.js              icon.svg から PNG のアイコンを作る (名前:大きさ で何枚でも)
-apple-touch-icon.png      その PNG (180x180)
+apple-touch-icon.png      その PNG (180x180)。絵は みどりと赤の円と玉
+sw.js                     オフラインでも開けるようにする (ネット優先)
 .github/workflows/pages.yml  main に入ったらテストして GitHub Pages に公開する
 ```
 

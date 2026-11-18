@@ -1,7 +1,7 @@
 {
-  "name": "app-template",
+  "name": "kakuritsu",
   "version": "1.0.0",
-  "description": "ビルドなしで動くアプリの雛形 (進め方のルールつき)",
+  "description": "みどりにとまればクリア。1%ずつ変わる確率で遊ぶ",
   "private": true,
   "scripts": {
     "start": "node serve.js",

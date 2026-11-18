@@ -98,7 +98,7 @@ async function run() {
   try {
     // ------------------------------------------------ スマホで開く
     section('スマホで開く');
-    const context = await browser.newContext({ ...devices['iPhone 13'] });
+    const context = await browser.newContext({ ...devices['iPhone 14 Pro Max'] || devices['iPhone 13'] });
     const phone = await context.newPage();
     phone.on('pageerror', (e) => errors.push('スマホ: ' + e.message));
     phone.on('console', (m) => { if (m.type() === 'error') errors.push('スマホ: ' + m.text()); });
@@ -130,27 +130,87 @@ async function run() {
     ok(/^#[0-9a-f]{6}$/i.test(bar.theme), `帯の色 (theme-color) が決めてある (${bar.theme})`);
 
     // ------------------------------------------------ ここにアプリごとの確認を足す
-    section('アプリの操作');
-    if (!(await phone.locator('#btnAction').count())) {
-      skip('雛形のボタンが無い (アーティファクトから取り込んだ)。アプリに合わせた確認をここに書く');
-    } else {
-    await phone.locator('#btnAction').tap();
-    await phone.waitForTimeout(120);
-    const after = await phone.evaluate(() => ({
-      count: window.__app.state().count,
-      shown: document.getElementById('result').textContent
-    }));
-    ok(after.count === 1 && after.shown !== '—', `ボタンを押すと結果が出る (${after.shown})`);
+    section('アプリの操作 (かくりつゲーム)');
+    {
+      // iPhone 16 Plus の大きさ。乱数 (crypto) は window.__r で決め打ちにする
+      const ctx = await browser.newContext({ viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true, deviceScaleFactor: 3 });
+      await ctx.addInitScript(() => {
+        window.__r = null;
+        const real = crypto.getRandomValues.bind(crypto);
+        crypto.getRandomValues = (arr) => {
+          if (window.__r === null || !(arr instanceof Uint32Array)) return real(arr);
+          arr[0] = Math.floor(window.__r * 4294967296); return arr;
+        };
+      });
+      const pg = await ctx.newPage();
+      pg.on('pageerror', (e) => errors.push('操作: ' + e.message));
+      await pg.goto(URL, { waitUntil: 'load' });
+      const idle = () => pg.waitForFunction(() => !window.__app.busy, null, { timeout: 5000 });
 
-    // 押した直後に表示が飛ばないか (CSS アニメーションの上書き事故よけ)
-    const jump = await measureJump(phone, '#result', 'document.getElementById("btnAction").click()');
-    ok(jump < 12, `押した直後に表示が飛ばない (最大ずれ ${jump}px)`);
+      // 安全域 (上 59・下 34) を差し込んでも、いちばん下の字まで画面に収まる
+      const fit = await pg.evaluate(() => {
+        document.body.style.paddingTop = '59px'; document.body.style.paddingBottom = '34px';
+        const r = (s) => document.querySelector(s).getBoundingClientRect();
+        const out = { hint: Math.round(r('#hint').bottom), btn: Math.round(r('#spin').bottom), head: Math.round(r('header').top), h: innerHeight };
+        document.body.style.paddingTop = ''; document.body.style.paddingBottom = '';
+        return out;
+      });
+      ok(fit.head >= 59 && fit.hint <= fit.h && fit.btn <= fit.h - 34,
+        `安全域を足しても上下に収まる (見出し ${fit.head} / ボタンの下 ${fit.btn} / 説明の下 ${fit.hint} / 画面 ${fit.h})`);
+
+      // 100% ↓: 当たると 1% 下がる。まわっている間は 2 回目を受けつけない
+      await pg.evaluate(() => { window.__r = 0.3; });
+      await pg.locator('#spin').tap();
+      await pg.locator('#wrap').tap().catch(() => {});
+      await idle();
+      let st = await pg.evaluate(() => ({ p: window.__app.p, streak: window.__app.streak, pct: document.getElementById('pct').textContent }));
+      ok(st.p === 99 && st.streak === 1 && st.pct === '99%', `あたると 1% 下がる。続けて押しても 1 回だけ (${JSON.stringify(st)})`);
+
+      // 玉は止まった場所 (0.3 → 108°) にいる
+      const ball = await pg.evaluate(() => document.getElementById('ballG').getAttribute('transform'));
+      ok(/rotate\(\s*(468|108|828|1188)(\.0+)?\s/.test(ball) || /rotate\(([\d.]+)/.test(ball) && Math.abs((+ball.match(/rotate\(([\d.]+)/)[1]) % 360 - 108) < 0.01,
+        `玉が止まった場所 (108°) にいる (${ball})`);
+
+      // はずれ (99% のとき 0.995) → おしまいの札。さいこう記録を覚える
+      await pg.evaluate(() => { window.__r = 0.995; });
+      await pg.locator('#spin').tap();
+      await pg.waitForFunction(() => window.__app.over, null, { timeout: 5000 });
+      const card = await pg.evaluate(() => {
+        const b = document.querySelector('#over .card').getBoundingClientRect();
+        return { lost: document.getElementById('lostAt').textContent, score: document.getElementById('score').textContent,
+          best: window.__app.bests.normal, top: Math.round(b.top), bottom: Math.round(b.bottom), h: innerHeight };
+      });
+      ok(card.lost === '99% で はずれ' && card.score === '100%' && card.best === 100,
+        `はずれると おしまい。100% までクリア・さいこう 100 (${card.lost} / ${card.score})`);
+      ok(card.top >= 0 && card.bottom <= card.h, `おしまいの札が画面に収まる (${card.top}〜${card.bottom})`);
+      await pg.locator('#again').tap();
+      st = await pg.evaluate(() => ({ p: window.__app.p, over: window.__app.over }));
+      ok(st.p === 100 && !st.over, 'もういちど で 100% から');
+
+      // 1% ↑: はずれると 1% 上がる。あたると おしまい
+      await pg.locator('.modes button[data-mode="gyaku"]').tap();
+      await pg.evaluate(() => { window.__r = 0.5; });
+      await pg.locator('#spin').tap();
+      await idle();
+      st = await pg.evaluate(() => ({ p: window.__app.p, misses: window.__app.misses }));
+      ok(st.p === 2 && st.misses === 1, `1% ↑ ではずれると 2% に (${JSON.stringify(st)})`);
+      await pg.evaluate(() => { window.__r = 0.001; });
+      await pg.locator('#spin').tap();
+      await pg.waitForFunction(() => window.__app.over, null, { timeout: 5000 });
+      const g = await pg.evaluate(() => ({ lost: document.getElementById('lostAt').textContent, best: window.__app.bests.gyaku }));
+      ok(g.lost === '2回目で あたり!' && g.best === 2, `2回目 (2%) で あたり。さいこう 2% (${g.lost})`);
+
+      // 開き直しても、モードとさいこう記録が残る
+      await pg.reload({ waitUntil: 'load' });
+      const kept = await pg.evaluate(() => ({ mode: window.__app.mode, best: document.getElementById('best').textContent }));
+      ok(kept.mode === 'gyaku' && kept.best === '2%', `開き直してもモードと記録が残る (${JSON.stringify(kept)})`);
+      await ctx.close();
     }
 
     // ------------------------------------------------ 明るい画面・暗い画面
     section('明るい画面と暗い画面');
     for (const scheme of ['light', 'dark']) {
-      const themed = await browser.newContext({ ...devices['iPhone 13'], colorScheme: scheme });
+      const themed = await browser.newContext({ ...devices['iPhone 14 Pro Max'] || devices['iPhone 13'], colorScheme: scheme });
       const page = await themed.newPage();
       page.on('pageerror', (e) => errors.push(scheme + ': ' + e.message));
       await page.goto(URL, { waitUntil: 'load' });

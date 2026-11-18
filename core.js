@@ -1,24 +1,35 @@
 /*!
- * core.js — ロジック。DOM を触らないので node でテストできる。
- *
- * ブラウザでは <script> で読み込むと window.Core になり、
- * node からは require() できる。ここにアプリの中身を書く。
+ * core.js — 確率の計算。DOM を触らないので node でテストできる。
+ * ブラウザでは window.Core、node からは require() で使う。
  */
 (function (root, factory) {
   'use strict';
-  if (typeof module === 'object' && typeof module.exports === 'object') {
-    module.exports = factory();
-  } else {
-    root.Core = factory();
-  }
+  if (typeof module === 'object' && typeof module.exports === 'object') module.exports = factory();
+  else root.Core = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  /**
-   * 決まった順番で数を出す乱数 (mulberry32)。
-   * 同じ seed からは必ず同じ並びになるので、
-   * 「同じ状態を作り直せる」「テストで結果を固定できる」。
-   */
+  /** 100% ↓: 100% から level% まで、ぜんぶ当てつづける確率 */
+  function clearProb(level) {
+    let q = 1;
+    for (let k = 100; k >= level; k--) q *= k / 100;
+    return q;
+  }
+
+  /** 1% ↑: 1%, 2%, … と上げていき、level% までのどこかで当たる確率 */
+  function hitByProb(level) {
+    let miss = 1;
+    for (let k = 1; k <= level; k++) miss *= 1 - k / 100;
+    return 1 - miss;
+  }
+
+  /** 1 回まわす。r は 0〜1 の乱数。止まった場所 (0〜100) がみどり (p% ぶん) なら当たり */
+  function spinOnce(p, r) {
+    const at = r * 100;
+    return { ok: at < p, deg: at / 100 * 360 };
+  }
+
+  /** 決まった順番で数を出す乱数 (テスト用) */
   function mulberry32(seed) {
     let a = seed >>> 0;
     return function () {
@@ -30,26 +41,5 @@
     };
   }
 
-  /** 配列をその場で混ぜる。rng を渡せば結果を再現できる。 */
-  function shuffle(array, rng) {
-    const random = rng || Math.random;
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(random() * (i + 1));
-      const t = array[i];
-      array[i] = array[j];
-      array[j] = t;
-    }
-    return array;
-  }
-
-  /** 動作確認用のおまけ。作り始めたら消してよい。 */
-  function roll(rng) {
-    return 1 + Math.floor((rng || Math.random)() * 6);
-  }
-
-  return {
-    mulberry32: mulberry32,
-    shuffle: shuffle,
-    roll: roll
-  };
+  return { clearProb, hitByProb, spinOnce, mulberry32 };
 });
